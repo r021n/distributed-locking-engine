@@ -48,5 +48,39 @@ async function testLuaScript() {
       );
       console.log(`Decrement ${i}:`, result);
     }
-  } catch (error) {}
+
+    // check remaining stock
+    console.log("\nTest 4: Checking remaining stock...");
+    const remainingStock = await redis.get("product:stock:1");
+    console.log(`Remaining stock: ${remainingStock}`);
+
+    // check order queue
+    console.log("\nTest 5: Checking order queue...");
+    const queueLength = await redis.llen("queue:orders");
+    console.log(`Orders in queue: ${queueLength}`);
+
+    // get orders from queue
+    console.log("\nTest 6: Getting orders from queue...");
+    const orders = await redis.lrange("queue:orders", 0, -1);
+    orders.forEach((order, index) => {
+      console.log(`Order ${index + 1}:`, JSON.parse(order));
+    });
+
+    // trying to decrement when stock is zero
+    console.log("\nTest 7: Testing sold out scenario...");
+    await redis.set("product:stock:2", 0);
+    try {
+      await (redis as any).decrementStock("product:stock:2", 2, "user99");
+    } catch (error: any) {
+      console.log(`Expected error: ${error.message}`);
+    }
+
+    console.log("\nAll tests completed successfully!");
+  } catch (error) {
+    console.error("Test failed:", error);
+  } finally {
+    await redis.quit();
+  }
 }
+
+testLuaScript();
