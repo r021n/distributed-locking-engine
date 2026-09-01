@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/seed.ts",
-    "test:checkout": "tsx src/test-checkout.ts"
+    "test:checkout": "tsx src/test-checkout.ts",
+    "test:flash-sale": "tsx src/test-flash-sale.ts"
   },
   "keywords": [],
   "author": "",
