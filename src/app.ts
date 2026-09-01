@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import Redis from "ioredis";
 import redisConnector from "./plugins/redis";
 import redisLuaScript from "./plugins/redis-lua";
-import { request } from "node:http";
+import flashSaleRoutes from "./routes/flash-sale";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -27,37 +27,7 @@ fastify.get("/health", async (_request, reply) => {
   };
 });
 
-fastify.post<{ Body: { productId: number; userId: string } }>(
-  "/test/checkout",
-  async (request, reply) => {
-    const { productId, userId } = request.body;
-    const stockKey = `product:stock:${productId}`;
-
-    const exists = await fastify.redis.exists(stockKey);
-    if (!exists) {
-      await fastify.redis.set(stockKey, 50);
-    }
-
-    try {
-      const redisWithCommands = fastify.redis as any;
-      const result = await redisWithCommands.decrementStock(
-        stockKey,
-        productId,
-        userId,
-      );
-      return {
-        success: true,
-        remainingStock: result[0],
-        status: result[1],
-      };
-    } catch (error: any) {
-      return reply.status(409).send({
-        success: false,
-        error: error.message,
-      });
-    }
-  },
-);
+fastify.register(flashSaleRoutes, { prefix: "/api/flash-sale" });
 
 const start = async () => {
   const port = parseInt(process.env.SERVER_PORT || "3000", 10);
