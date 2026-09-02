@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/seed.ts",
     "test:checkout": "tsx src/test-checkout.ts",
-    "test:flash-sale": "tsx src/test-flash-sale.ts"
+    "test:flash-sale": "tsx src/test-flash-sale.ts",
+    "worker": "tsx src/worker.ts"
   },
   "keywords": [],
   "author": "",

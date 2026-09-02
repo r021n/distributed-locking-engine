@@ -31,3 +31,91 @@ redis.on("error", (err) => {
 redis.on("connect", () => {
   console.log("[Worker] Redis connected");
 });
+
+redis.on("ready", () => {
+  console.log("[Worker] Redis ready, starting order processor...");
+});
+
+async function processOrders(): Promise<void> {
+  const batch: (typeof orders.$inferInsert)[] = [];
+
+  try {
+    const result = await redis.brpop("queue:orders", POLL_INTERVAL_MS / 1000);
+
+    if (result) {
+      const [key, value] = result;
+      const orderData: OrderData = JSON.parse(value);
+
+      batch.push({
+        userId: orderData.user_id,
+        productId: parseInt(orderData.product_id, 10),
+        status: "completed",
+      });
+
+      let drained = false;
+      while (!drained && batch.length < BATCH_SIZE) {
+        const nextResult = await redis.rpop("queue:orders");
+
+        if (nextResult) {
+          const nextOrder: OrderData = JSON.parse(nextResult);
+          batch.push({
+            userId: nextOrder.user_id,
+            productId: parseInt(nextOrder.product_id, 10),
+            status: "completed",
+          });
+        } else {
+          drained = true;
+        }
+      }
+    }
+
+    if (batch.length > 0) {
+      await db.insert(orders).values(batch);
+      console.log(`[Worker] Inserted ${batch.length} order(s) to PostgreSQL`);
+    }
+  } catch (error: any) {
+    if (error.message !== "Connection is closed.") {
+      console.error("[Worker] Error processing orders:", error.message);
+    }
+  }
+}
+
+async function startWorker(): Promise<void> {
+  console.log("[Worker] Waiting for Redis connection...");
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Redis connection timed out after 10 seconds"));
+    }, 10000);
+
+    redis.once("ready", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+
+    redis.once("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+
+  console.log("[Worker] Worker started. Listening for orders...");
+
+  while (true) {
+    await processOrders();
+  }
+}
+
+async function gracefulShutdown(): Promise<void> {
+  console.log("\n[Worker] Shutting down gracefully...");
+  await redis.quit();
+  process.exit(0);
+}
+
+process.on("SIGINT", gracefulShutdown);
+process.on("SIGTERM", gracefulShutdown);
+
+startWorker().catch((err) => {
+  console.error("[Worker] Failed to start worker:", err);
+  process.exit(1);
+});
