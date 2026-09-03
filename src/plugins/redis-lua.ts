@@ -12,13 +12,15 @@ const DECREMENT_STOCK_SCRIPT = readFileSync(
 async function redisLuaScript(fastify: FastifyInstance) {
   const redis = fastify.redis as Redis & {
     decrementStock: (
+      stockKey: string,
+      userSetKey: string,
       productId: number,
       userId: string,
     ) => Promise<[number, string]>;
   };
 
   redis.defineCommand("decrementStock", {
-    numberOfKeys: 1,
+    numberOfKeys: 2,
     lua: DECREMENT_STOCK_SCRIPT,
   });
 

@@ -72,6 +72,7 @@ async function flashSaleRoutes(fastify: FastifyInstance) {
     ) => {
       const { userId, productId } = request.body;
       const stockKey = `product:stock:${productId}`;
+      const userSetKey = `product:users:${productId}`;
 
       const exists = await fastify.redis.exists(stockKey);
       if (!exists) {
@@ -85,6 +86,7 @@ async function flashSaleRoutes(fastify: FastifyInstance) {
         const redisWithCommands = fastify.redis as Redis & {
           decrementStock: (
             stockKey: string,
+            userSetKey: string,
             productId: number,
             userId: string,
           ) => Promise<[number, string]>;
@@ -92,6 +94,7 @@ async function flashSaleRoutes(fastify: FastifyInstance) {
 
         const result = await redisWithCommands.decrementStock(
           stockKey,
+          userSetKey,
           productId,
           userId,
         );
@@ -104,7 +107,14 @@ async function flashSaleRoutes(fastify: FastifyInstance) {
       } catch (error: any) {
         const errorMessage = error.message || "UNKNOWN_ERROR";
 
-        if (errorMessage.include("SOLD_OUT")) {
+        if (errorMessage.includes("USER_ALREADY_PURCHASED")) {
+          return reply.status(409).send({
+            success: false,
+            error: "USER_ALREADY_PURCHASED",
+          } as CheckoutErrorResponse);
+        }
+
+        if (errorMessage.includes("SOLD_OUT")) {
           return reply.status(409).send({
             success: false,
             error: "SOLD_OUT",
