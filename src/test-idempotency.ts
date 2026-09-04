@@ -34,6 +34,45 @@ async function testIdempotency() {
     );
 
     const stockKey = `product:stock:${productId}`;
-    const userKey = `product:users:${productId}`;
+    const usersKey = `product:users:${productId}`;
+
+    console.log("2. Menyiapkan state awal di Redis...");
+    await redis.set(stockKey, 10);
+    await redis.del(usersKey);
+    await redis.del("queue:orders");
+    console.log(`Stok di-set ke:10`);
+    console.log(`Key set user '${usersKey}' dibersihkan`);
+    console.log(`Queue 'queue:orders' dibersihkan\n`);
+
+    console.log("3. Test: Pembelian pertama user alpha...");
+    const res1 = await fetch(`${BASE_URL}/api/flash-sale/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "user_alpha", productId }),
+    });
+    const data1 = (await res1.json()) as any;
+    console.log(`HTTP Status: ${res1.status}`);
+    console.log(`Response:`, data1);
+    if (res1.status !== 200 || !data1.success) {
+      throw new Error("Gagal pada pembelian pertama user_alpha!");
+    }
+
+    console.log(
+      "\n4. Test: Percobaan pembelian KEDUA user_alpha (idempotensi)...",
+    );
+    const res2 = await fetch(`${BASE_URL}/api/flash-sale/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "user_alpha", productId }),
+    });
+    const data2 = (await res2.json()) as any;
+    console.log(`HTTP Status: ${res2.status} (Diharapkan: 409 Conflict)`);
+    console.log(`Response:`, data2);
+    if (res2.status !== 409 || data2.error !== "USER_ALREADY_PURCHASED") {
+      throw new Error(
+        `Idempotensi gagal! User berhasil beli 2x atau error tidak sesuai. Status: ${res2.status}, Error: ${data2.error}`,
+      );
+    }
+    console.log("--> SUKSES: Request kedua user_alpha berhasil ditolak!");
   } catch (error) {}
 }
