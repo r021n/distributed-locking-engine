@@ -74,5 +74,51 @@ async function testIdempotency() {
       );
     }
     console.log("--> SUKSES: Request kedua user_alpha berhasil ditolak!");
+
+    console.log("\n5. Test: Pembelian pertama user_beta (User berbeda)...");
+    const res3 = await fetch(`${BASE_URL}/api/flash-sale/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "user_beta", productId }),
+    });
+    const data3 = (await res3.json()) as any;
+    console.log(`HTTP Status: ${res3.status}`);
+    console.log(`Response:`, data3);
+    if (res3.status !== 200 || !data3.success) {
+      throw new Error("Gagal pada pembelian user_beta");
+    }
+
+    console.log("\nRequest paralel serentak dari user_gamma...");
+    const parallelRequests = Array.from({ length: 5 }, () =>
+      fetch(`${BASE_URL}/api/flash-sale/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "user_gamma", productId }),
+      }).then(async (res) => ({
+        status: res.status,
+        data: (await res.json()) as any,
+      })),
+    );
+
+    const results = await Promise.all(parallelRequests);
+    const successCount = results.filter((r) => r.status === 200).length;
+    const rejectedCount = results.filter(
+      (r) => r.status === 409 && r.data.error === "USER_ALREADY_PURCHASED",
+    ).length;
+
+    console.log("Hasil dari 5 request serentak:");
+    console.log(`- Sukses (200 ok): ${successCount} (Diharapkan: 1)`);
+    console.log(
+      `- Ditolak (409 USER_ALREADY_PURCHASED): ${rejectedCount} (Diharapkan: 4)`,
+    );
+
+    if (successCount !== 1 || rejectedCount !== 4) {
+      throw new Error(
+        `Race condition gagal dicegah! Sukses: ${successCount}, Ditolak: ${rejectedCount}`,
+      );
+    }
+    console.log(
+      "--> SUKSES: Atomisitas Lua script mencegah race condition user ganda!",
+    );
   } catch (error) {}
 }
