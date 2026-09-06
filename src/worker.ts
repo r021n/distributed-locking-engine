@@ -70,12 +70,44 @@ async function processOrders(): Promise<void> {
     }
 
     if (batch.length > 0) {
-      await db.insert(orders).values(batch);
-      console.log(`[Worker] Inserted ${batch.length} order(s) to PostgreSQL`);
+      try {
+        await db.insert(orders).values(batch);
+        console.log(`[Worker] Inserted ${batch.length} order(s) to PostgreSQL`);
+      } catch (insertError: any) {
+        const errorDetail =
+          insertError?.cause?.message ||
+          insertError?.cause?.detail ||
+          insertError.message;
+        console.error(
+          `[Worker] Batch insert failed (${errorDetail}). Falling back to individual inserts...`,
+        );
+
+        for (const order of batch) {
+          try {
+            await db.insert(orders).values(order);
+            console.log(
+              `[Worker] Inserted order for user ${order.userId} (productId: ${order.productId})`,
+            );
+          } catch (itemError: any) {
+            const itemDetail =
+              itemError?.cause?.message ||
+              itemError?.cause?.detail ||
+              itemError.message;
+            console.error(
+              `[Worker] Failed to insert order for user ${order.userId} (productId: ${order.productId}): ${itemDetail}. Moving to DLQ.`,
+            );
+            await redis.lpush(
+              "queue:orders:dlq",
+              JSON.stringify({ ...order, error: itemDetail }),
+            );
+          }
+        }
+      }
     }
   } catch (error: any) {
     if (error.message !== "Connection is closed.") {
-      console.error("[Worker] Error processing orders:", error.message);
+      const detail = error?.cause?.message || error?.cause?.detail || error.message;
+      console.error("[Worker] Error processing orders:", detail);
     }
   }
 }
