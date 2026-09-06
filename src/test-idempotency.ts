@@ -88,7 +88,7 @@ async function testIdempotency() {
       throw new Error("Gagal pada pembelian user_beta");
     }
 
-    console.log("\nRequest paralel serentak dari user_gamma...");
+    console.log("\n6. Test: 5 Request paralel serentak dari user_gamma...");
     const parallelRequests = Array.from({ length: 5 }, () =>
       fetch(`${BASE_URL}/api/flash-sale/checkout`, {
         method: "POST",
@@ -120,5 +120,37 @@ async function testIdempotency() {
     console.log(
       "--> SUKSES: Atomisitas Lua script mencegah race condition user ganda!",
     );
-  } catch (error) {}
+
+    console.log(`\n7. Verifikasi data di Redis:`);
+    const finalStock = await redis.get(stockKey);
+    const buyers = await redis.smembers(usersKey);
+    const queueLength = await redis.llen("queue:orders");
+
+    console.log(
+      `Sisa stock di Redis: ${finalStock} (Awal: 10, Terjual: 3, Sisa:7)`,
+    );
+    console.log(`Daftar Pembeli di Redis Set (${usersKey}):`, buyers);
+    console.log(`Jumlah Order di queue:orders: ${queueLength}`);
+
+    if (parseInt(finalStock || "0", 10) !== 7) {
+      throw new Error(
+        `Sisa stok tidak tepat! Diharapkan 7, didapat: ${finalStock}`,
+      );
+    }
+
+    if (buyers.length !== 3 || queueLength !== 3) {
+      throw new Error("Jumlah pembeli di Redis Set atau antrean tidak cocok!");
+    }
+
+    console.log(
+      "\n=== SEMUA PENGUJIAN FASE 6 BERHASIL DILALUI DENGAN SEMPURNA! ===",
+    );
+  } catch (error: any) {
+    console.error("\nTest Gagal:", error.message);
+    process.exit(1);
+  } finally {
+    await redis.quit();
+  }
 }
+
+testIdempotency();

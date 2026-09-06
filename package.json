@@ -17,6 +17,7 @@
     "db:seed": "tsx src/seed.ts",
     "test:checkout": "tsx src/test-checkout.ts",
     "test:flash-sale": "tsx src/test-flash-sale.ts",
+    "test:idempotency": "tsx src/test-idempotency.ts",
     "worker": "tsx src/worker.ts"
   },
   "keywords": [],

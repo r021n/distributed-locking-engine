@@ -19,9 +19,14 @@ async function testLuaScript() {
 
   try {
     redis.defineCommand("decrementStock", {
-      numberOfKeys: 1,
+      numberOfKeys: 2,
       lua: DECREMENT_STOCK_SCRIPT,
     });
+
+    // Clean state
+    await redis.set("product:stock:1", 50);
+    await redis.del("product:users:1");
+    await redis.del("queue:orders");
 
     // Initialize stock
     console.log("Test 1: Initializing stock for product 1...");
@@ -33,6 +38,7 @@ async function testLuaScript() {
     console.log("\nTest 2: Testing successful decrement...");
     const result1 = await (redis as any).decrementStock(
       "product:stock:1",
+      "product:users:1",
       1,
       "user1",
     );
@@ -43,6 +49,7 @@ async function testLuaScript() {
     for (let i = 2; i < 5; i++) {
       const result = await (redis as any).decrementStock(
         "product:stock:1",
+        "product:users:1",
         1,
         `user${i}`,
       );
