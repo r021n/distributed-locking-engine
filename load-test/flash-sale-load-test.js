@@ -53,3 +53,36 @@ export function setup() {
 
   return { productId: seedData.productId };
 }
+
+export default function (data) {
+  const userId = `loadtest_user_${__VU}_${__ITER}`;
+  const payload = JSON.stringify({
+    userId: userId,
+    productId: data.productId,
+  });
+
+  const params = {
+    headers: { "Content-Type": "application/json" },
+  };
+
+  const res = http.post(`${BASE_URL}/api/flash-sale/checkout`, payload, params);
+
+  if (res.status === 200) {
+    const body = res.json();
+    check(res, {
+      "checkout success": (r) => r.status === 200 && body.success === true,
+    });
+    successCount.add(1);
+  } else if (res.status === 409) {
+    const body = res.json();
+    if (body.error === "SOLD_OUT") {
+      soldOutCount.add(1);
+    } else if (body.error === "USER_ALREADY_PURCHASED") {
+      duplicateCount.add(1);
+    } else {
+      otherErrorCount.add(1);
+    }
+  } else {
+    otherErrorCount.add(1);
+  }
+}
