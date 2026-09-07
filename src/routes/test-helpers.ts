@@ -43,4 +43,38 @@ async function testHelpersRoutes(fastify: FastifyInstance) {
       });
     },
   );
+
+  fastify.get<{ Querystring: { productId: string } }>(
+    "/verify",
+    async (
+      request: FastifyRequest<{ Querystring: { productId: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const { productId } = request.query;
+      const redis = fastify.redis as Redis;
+
+      const stockKey = `product:stock:${productId}`;
+      const usersKey = `product:users:${productId}`;
+
+      // get stock from redis
+      const redisStock = parseInt((await redis.get(stockKey)) || "-1", 10);
+
+      // get total buyers
+      const redisBuyersCount = await redis.scard(usersKey);
+
+      // get total orders in postgreSQL
+      const [orderCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(orders)
+        .where(sql`${orders.productId} = ${parseInt(productId, 10)}`);
+
+      return reply.status(200).send({
+        redisStock: redisStock,
+        postgresOrders: orderCount.count,
+        redisBuyersCount: redisBuyersCount,
+      });
+    },
+  );
 }
+
+export default testHelpersRoutes;
