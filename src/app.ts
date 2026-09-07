@@ -3,6 +3,7 @@ import Redis from "ioredis";
 import redisConnector from "./plugins/redis";
 import redisLuaScript from "./plugins/redis-lua";
 import flashSaleRoutes from "./routes/flash-sale";
+import testHelpersRoutes from "./routes/test-helpers";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -28,6 +29,7 @@ fastify.get("/health", async (_request, reply) => {
 });
 
 fastify.register(flashSaleRoutes, { prefix: "/api/flash-sale" });
+fastify.register(testHelpersRoutes, { prefix: "/__test" });
 
 const start = async () => {
   const port = parseInt(process.env.SERVER_PORT || "3000", 10);
