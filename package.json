@@ -18,6 +18,7 @@
     "test:checkout": "tsx src/test-checkout.ts",
     "test:flash-sale": "tsx src/test-flash-sale.ts",
     "test:idempotency": "tsx src/test-idempotency.ts",
+    "test:load": "k6 run load-test/flash-sale-load-test.js",
     "worker": "tsx src/worker.ts"
   },
   "keywords": [],

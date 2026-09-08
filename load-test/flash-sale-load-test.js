@@ -86,3 +86,48 @@ export default function (data) {
     otherErrorCount.add(1);
   }
 }
+
+export function teardown(data) {
+  console.log(`\n=== VERIFYING RESULTS ===`);
+
+  const verifyRes = http.get(
+    `${BASE_URL}/__test/verify?productId=${data.productId}`,
+  );
+
+  if (verifyRes.status !== 200) {
+    console.error(`Verify endpoint returned status: ${verifyRes.status}`);
+    return;
+  }
+
+  const result = verifyRes.json();
+  console.log(`Redis stock: ${result.redisStock} (expected: 0)`);
+  console.log(
+    `PostgreSQL orders: ${result.postgresOrders} (expected: ${STOCK})`,
+  );
+  console.log(
+    `Redis buyers count: ${result.redisBuyersCount} (expected: ${STOCK})`,
+  );
+
+  check(result, {
+    "redis stock is 0": (r) => r.redisStock === 0,
+    [`postgres orders count is ${STOCK}`]: (r) => r.postgresOrders === STOCK,
+    [`redis buyers count is ${STOCK}`]: (r) => r.redisBuyersCount === STOCK,
+  });
+
+  if (
+    result.redisStock === 0 &&
+    result.postgresOrders === STOCK &&
+    result.redisBuyersCount === STOCK
+  ) {
+    console.log(`\n=== ALL VERIFICATIONS PASSED ===`);
+  } else {
+    console.error(`\n=== SOME VERIFICATIONS FAILED ===`);
+  }
+}
+
+export function handleSummary(data) {
+  return {
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+    "load-test/summary.json": JSON.stringify(data, null, 2),
+  };
+}
