@@ -20,7 +20,7 @@ export const options = {
       timeUnit: "2s",
       duration: "2s",
       preAllocatedVUs: TOTAL_USERS,
-      maxUVs: TOTAL_USERS,
+      maxVUs: TOTAL_USERS,
     },
   },
   thresholds: {
